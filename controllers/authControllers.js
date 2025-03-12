@@ -54,7 +54,7 @@ const signupUser = async (req, res) => {
     );
 
     // Create verification URL
-    const verificationUrl = `http://localhost:5173/verify-email/${verificationToken}`;
+    const verificationUrl = `https://linkup-ruddy.vercel.app//verify-email/${verificationToken}`;
 
     const mailOptions = {
       from: process.env.EMAIL_USER, // Sender email
