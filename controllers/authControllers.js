@@ -2,17 +2,20 @@ const User = require("../models/user");
 const { hashPassword, comparePassword } = require("../helpers/auth");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
-
+const { TipLink } = require('@tiplink/api');
+const { encrypt } = require('../helpers/encryption');
+const { Connection, Keypair, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } = require('@solana/web3.js');
+const { decrypt } = require('../helpers/encryption');
 
 // Create a transporter for nodemailer
 const transporter = nodemailer.createTransport({
-  host: process.env.HOST, // smtp.gmail.com
-  service: process.env.SERVICE, // gmail
-  port: Number(process.env.EMAIL_PORT), // 587
-  secure: Boolean(process.env.SECURE), // true
+  host: process.env.HOST, 
+  service: process.env.SERVICE, 
+  port: Number(process.env.EMAIL_PORT), 
+  secure: Boolean(process.env.SECURE), 
   auth: {
-    user: process.env.EMAIL_USER, // joshxion@gmail.com
-    pass: process.env.EMAIL_PASS, // Joshuasunday or your app password
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS, 
   },
 });
 
@@ -38,12 +41,21 @@ const signupUser = async (req, res) => {
     // Hash the password
     const hashedPassword = await hashPassword(password);
 
+    const tiplink = await TipLink.create();
+    const tiplinkUrl = tiplink.url.toString();
+    const publicKey = tiplink.keypair.publicKey.toBase58();
+    const privateKey = Buffer.from(tiplink.keypair.secretKey).toString('base64'); 
+    const encryptedPrivateKey = encrypt(privateKey);
+
     // Create the user
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
-      verified: false // Default to false
+      verified: false,
+      tiplinkUrl,
+      publicKey,
+      privateKey: encryptedPrivateKey,
     });
 
     // Generate verification token
@@ -83,7 +95,9 @@ const signupUser = async (req, res) => {
         return res.status(500).json({ error: "Error sending verification email" });
       } else {
         console.log('Email sent:', info.response);
-        return res.json({ message: "Signup successful. Please check your email to verify your account." });
+        return res.json({ message: "Signup successful. Please check your email to verify your account." }),
+        tiplinkUrl,
+        publicKey;
       }
     });
 
@@ -148,6 +162,9 @@ const loginUser = async (req, res) => {
     res.json({
       message: "Login successful",
       user: {
+        privateKey: user.privateKey,
+        tiplinkUrl: user.tiplinkUrl, // Include tiplinkUrl
+        publicKey: user.publicKey,
         name: user.name,
         email: user.email,
         _id: user._id,
@@ -193,6 +210,8 @@ const getUserCredentials = async (req, res) => {
     }
 
     res.json({
+      tiplinkUrl: user.tiplinkUrl,
+      publicKey: user.publicKey,
       img: user.img,
       portfolio: user.portfolio,
       github_url: user.github_url,
@@ -262,6 +281,51 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const sendSol = async (req, res) => {
+  try {
+    const { recipientAddress, amount } = req.body;
+    const userId = req.user.id; // Assuming req.user is set by your authentication middleware
+
+    // Fetch the user from the database
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Decrypt the private key
+    const decryptedPrivateKey = decrypt(user.privateKey);
+    const privateKeyBuffer = Buffer.from(decryptedPrivateKey, 'base64');
+    const senderKeypair = Keypair.fromSecretKey(privateKeyBuffer);
+
+    // Convert the recipient address to a PublicKey
+    const recipientPublicKey = new PublicKey(recipientAddress);
+
+    // Connect to the Solana network
+    const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+
+    // Create a transaction to send SOL
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: senderKeypair.publicKey,
+        toPubkey: recipientPublicKey,
+        lamports: amount * 1e9, // Convert SOL to lamports (1 SOL = 1e9 lamports)
+      })
+    );
+
+    // Sign and send the transaction
+    const signature = await sendAndConfirmTransaction(connection, transaction, [senderKeypair]);
+
+    // Return the transaction signature
+    res.json({
+      message: "Transaction successful",
+      signature,
+    });
+  } catch (error) {
+    console.error("Error sending SOL:", error);
+    res.status(500).json({ error: "Failed to send SOL" });
+  }
+};
+
 // Update exports
 module.exports = {
   signupUser,
@@ -270,6 +334,7 @@ module.exports = {
   getUserCredentials,
   updateProfile,
   verifyEmail,
+  sendSol
 };
 
 

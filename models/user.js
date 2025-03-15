@@ -27,7 +27,10 @@ const userSchema = new mongoose.Schema({
   verified: {
     type: Boolean,
     default: false
-  }
+  },
+  tiplinkUrl: String, 
+  publicKey: String,
+  privateKey: String,
 }, { timestamps: true });
 
 const UserModel = mongoose.model("User", userSchema);

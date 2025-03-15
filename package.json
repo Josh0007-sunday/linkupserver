@@ -13,6 +13,8 @@
   "type": "commonjs",
   "description": "",
   "dependencies": {
+    "@solana/web3.js": "^1.98.0",
+    "@tiplink/api": "^0.3.1",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
