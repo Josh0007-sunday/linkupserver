@@ -6,6 +6,7 @@ const { TipLink } = require('@tiplink/api');
 const { encrypt } = require('../helpers/encryption');
 const { Connection, Keypair, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } = require('@solana/web3.js');
 const { decrypt } = require('../helpers/encryption');
+const crypto = require("crypto"); 
 
 // Create a transporter for nodemailer
 const transporter = nodemailer.createTransport({
@@ -162,6 +163,7 @@ const loginUser = async (req, res) => {
     res.json({
       message: "Login successful",
       user: {
+        xpNumber: user.xpNumber,
         privateKey: user.privateKey,
         tiplinkUrl: user.tiplinkUrl, // Include tiplinkUrl
         publicKey: user.publicKey,
@@ -210,6 +212,7 @@ const getUserCredentials = async (req, res) => {
     }
 
     res.json({
+      xpNumber: user.xpNumber,
       tiplinkUrl: user.tiplinkUrl,
       publicKey: user.publicKey,
       img: user.img,
@@ -326,6 +329,129 @@ const sendSol = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Check if the user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Generate a reset token
+    const resetToken = crypto.randomBytes(20).toString("hex");
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    // Set token expiration (e.g., 1 hour)
+    user.resetPasswordToken = resetPasswordToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    // Create reset URL
+    const resetUrl = `http://linkup-ruddy.vercel.app/reset-password/${resetToken}`;
+
+    // Send email
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: "Password Reset Request",
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333;">
+          <h1>Password Reset</h1>
+          <p>You requested a password reset. Click the link below to reset your password:</p>
+          <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #007BFF; color: #fff; text-decoration: none; border-radius: 5px;">
+            Reset Password
+          </a>
+          <p>If you did not request this, please ignore this email.</p>
+        </div>
+      `,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error("Error sending email:", error);
+        return res.status(500).json({ error: "Error sending reset email" });
+      }
+      res.json({ message: "Reset email sent successfully" });
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    // Hash the token to compare with the one in the database
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // Find the user by the token and check if it's expired
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired token" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await hashPassword(password);
+
+    // Update the user's password and clear the reset token
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ message: "Password reset successful" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+const updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id; // Assuming req.user is set by your auth middleware
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Verify the current password
+    const isValidPassword = await comparePassword(currentPassword, user.password);
+    if (!isValidPassword) {
+      return res.status(400).json({ error: "Current password is incorrect" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update the password
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.error("Update password error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 // Update exports
 module.exports = {
   signupUser,
@@ -334,7 +460,10 @@ module.exports = {
   getUserCredentials,
   updateProfile,
   verifyEmail,
-  sendSol
+  sendSol,
+  forgotPassword,
+  resetPassword,
+  updatePassword
 };
 
 

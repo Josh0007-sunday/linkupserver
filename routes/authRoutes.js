@@ -8,6 +8,9 @@ const {
   loginUser,
   getUserCredentials,
   tokenIsValid,
+  forgotPassword,
+  updatePassword,
+  resetPassword
 } = require("../controllers/authControllers");
 const auth = require("../middleware/authMiddleware");
 
@@ -17,5 +20,9 @@ router.get("/user", auth, getUserCredentials);
 router.post("/signup", signupUser);
 router.post("/", loginUser);
 router.get("/verify-email/:token", verifyEmail); 
+
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password/:token", resetPassword);
+router.put("/update-password", auth, updatePassword);
 
 module.exports = router;

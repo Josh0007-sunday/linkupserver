@@ -168,6 +168,7 @@ app.use("/", require("./routes/marketing"));
 app.use("/", require("./routes/bountyRoutes"));
 app.use("/", require("./routes/verify"));
 app.use("/", require("./routes/sendsol"));
+app.use("/", require("./routes/forumRoutes"));
 
 const port = process.env.PORT || 8000;
 app.listen(port, () => console.log(`Server is running on port ${port}`));

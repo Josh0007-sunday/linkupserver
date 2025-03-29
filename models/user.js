@@ -16,6 +16,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  resetPasswordToken: String, 
+  resetPasswordExpires: Date,
   img: String,
   status: String,
   bio: String,
@@ -31,6 +33,10 @@ const userSchema = new mongoose.Schema({
   tiplinkUrl: String, 
   publicKey: String,
   privateKey: String,
+  xpNumber: { 
+    type: Number,
+    default: 0 
+  }
 }, { timestamps: true });
 
 const UserModel = mongoose.model("User", userSchema);
