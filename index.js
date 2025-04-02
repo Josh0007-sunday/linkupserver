@@ -10,6 +10,7 @@ const Job = require("./models/job");
 const AdminModel = require("./models/admin");
 const MarketingPitch = require("./models/markrtingPitch");
 const Service = require('./models/service'); 
+const { AccessToken, Role } = require('@huddle01/server-sdk/auth');
 
 dotenv.config();
 
@@ -169,6 +170,7 @@ app.use("/", require("./routes/bountyRoutes"));
 app.use("/", require("./routes/verify"));
 app.use("/", require("./routes/sendsol"));
 app.use("/", require("./routes/forumRoutes"));
+app.use("/", require("./routes/huddleRoute"));
 
 const port = process.env.PORT || 8000;
 app.listen(port, () => console.log(`Server is running on port ${port}`));

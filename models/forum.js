@@ -81,38 +81,12 @@ const forumSchema = new mongoose.Schema(
         },
       },
     ],
-    //added space
-    space: {
-      isActive: {
-        type: Boolean,
-        default: false
-      },
-      currentSpeakers: [{
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User"
-        },
-        name: String,
-        img: String,
-        type: {
-          type: String,
-          enum: ['creator', 'invited', 'requested'],
-          default: 'requested'
-        }
-      }],
-      micRequests: [{
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User"
-        },
-        name: String,
-        img: String,
-        timestamp: {
-          type: Date,
-          default: Date.now
-        }
-      }]
+
+    roomId: {
+      type: String, // Huddle01 room ID for the audio space
+      default: null,
     },
+    
   },
   { timestamps: true }
 );
