@@ -97,7 +97,7 @@ const forumSchema = new mongoose.Schema(
 
 // Ensure attendees limit is 30
 forumSchema.pre("save", function (next) {
-  if (this.attendees.length > 30) {
+  if (this.attendees.length > 50) {
     throw new Error("Forum cannot have more than 30 attendees");
   }
   next();
