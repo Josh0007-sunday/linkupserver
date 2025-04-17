@@ -22,6 +22,30 @@ mongoose
   .then(() => console.log("Successfully Connected to MongoDB"))
   .catch((err) => console.log("Error connecting to MongoDB:", err));
 
+  
+// Migration for adding eth_publickey to existing users
+const migrateEthPublicKey = async () => {
+  try {
+    const result = await UserModel.updateMany(
+      { eth_publickey: { $exists: false } }, // Find users missing eth_publickey
+      { $set: { eth_publickey: "" } } // Set default to empty string
+    );
+    if (result.modifiedCount > 0) {
+      console.log(`Migrated ${result.modifiedCount} users to include eth_publickey`);
+    } else {
+      console.log("No users needed eth_publickey migration");
+    }
+  } catch (error) {
+    console.error("Eth_publickey migration error:", error);
+  }
+};
+
+// Run migration on successful MongoDB connection
+mongoose.connection.once("open", () => {
+  console.log("MongoDB connection opened");
+  migrateEthPublicKey();
+});
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
@@ -159,6 +183,9 @@ app.get("/getAdmins", async (req, res) => {
     });
   }
 });
+
+
+
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/", require("./routes/authRoutes"));

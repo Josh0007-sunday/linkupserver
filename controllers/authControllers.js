@@ -163,6 +163,7 @@ const loginUser = async (req, res) => {
     res.json({
       message: "Login successful",
       user: {
+        eth_publickey: user.eth_publickey,
         xpNumber: user.xpNumber,
         privateKey: user.privateKey,
         tiplinkUrl: user.tiplinkUrl, // Include tiplinkUrl
@@ -212,6 +213,8 @@ const getUserCredentials = async (req, res) => {
     }
 
     res.json({
+      privateKey: user.privateKey,
+      eth_publickey: user.eth_publickey,
       xpNumber: user.xpNumber,
       tiplinkUrl: user.tiplinkUrl,
       publicKey: user.publicKey,
@@ -235,10 +238,10 @@ const getUserCredentials = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { id } = req.user; // Assuming req.user is set by your authentication middleware
-    const { status, bio, twitter_url, facebook_url, linkedin_url, github_url, portfolio } = req.body;
+    const { id } = req.user; // Assuming req.user is set by authentication middleware
+    const { status, bio, twitter_url, facebook_url, linkedin_url, github_url, portfolio, eth_publickey } = req.body;
 
-    console.log("Request Body:", req.body); // Log the request body
+    console.log("Request Body:", req.body); // Log the request body for debugging
 
     // Find the user by ID
     const user = await User.findById(id);
@@ -246,7 +249,7 @@ const updateProfile = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Update the user's profile fields
+    // Update profile fields if provided
     if (status) user.status = status;
     if (bio) user.bio = bio;
     if (twitter_url) user.twitter_url = twitter_url;
@@ -254,16 +257,23 @@ const updateProfile = async (req, res) => {
     if (linkedin_url) user.linkedin_url = linkedin_url;
     if (github_url) user.github_url = github_url;
     if (portfolio) user.portfolio = portfolio;
+    if (eth_publickey) {
+      // Optional: Validate Ethereum address format (42 characters, starts with 0x)
+      if (!/^0x[a-fA-F0-9]{40}$/.test(eth_publickey)) {
+        return res.status(400).json({ error: "Invalid Ethereum public key" });
+      }
+      user.eth_publickey = eth_publickey;
+    }
 
     // Handle image upload
     if (req.file) {
-      user.img = `/uploads/${req.file.filename}`; // Save the file path in the database
+      user.img = `/uploads/${req.file.filename}`; // Save the file path
     }
 
     // Save the updated user
     await user.save();
 
-    // Return the updated user profile (excluding sensitive data like password)
+    // Return the updated user profile (excluding sensitive data)
     const updatedUser = {
       name: user.name,
       email: user.email,
@@ -275,6 +285,7 @@ const updateProfile = async (req, res) => {
       linkedin_url: user.linkedin_url,
       github_url: user.github_url,
       portfolio: user.portfolio,
+      eth_publickey: user.eth_publickey
     };
 
     res.json({ message: "Profile updated successfully", user: updatedUser });

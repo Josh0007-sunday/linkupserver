@@ -18,4 +18,6 @@ router.get("/public", forumController.getPublicForums);
 // Get a specific forum by ID
 router.get("/forum/:forumId", auth, forumController.getForumById);
 
+router.delete("/forum/:forumId", auth, forumController.deleteForum);
+
 module.exports = router;

@@ -26,16 +26,20 @@ const forumSchema = new mongoose.Schema(
       required: true,
     },
     creatorImg: {
-      type: String, // Image URI for the creator
+      type: String, 
       default: "https://static.vecteezy.com/system/resources/thumbnails/010/260/479/small/default-avatar-profile-icon-of-social-media-user-in-clipart-style-vector.jpg", // Default placeholder image
     },
     creatorStatus: {
-      type: String, // Status of the creator
-      default: "Active", // Default status
+      type: String, 
+      default: "Active",
     },
     isPublic: {
       type: Boolean,
       default: true,
+    },
+    passcode: {
+      type: String,
+      default: null, 
     },
     attendees: [
       {

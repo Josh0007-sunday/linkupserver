@@ -1,11 +1,12 @@
 const Forum = require("../models/forum");
 const User = require("../models/user");
 
-// Create a new forum
+
+
 const createForum = async (req, res) => {
   try {
-    const { name, description, isPublic, imageUri } = req.body;
-    const creatorId = req.user.id; // Getting the user ID from auth middleware
+    const { name, description, isPublic, imageUri, passcode } = req.body;
+    const creatorId = req.user.id;
     const creator = await User.findById(creatorId);
 
     if (!creator) {
@@ -15,20 +16,21 @@ const createForum = async (req, res) => {
     const forum = new Forum({
       name,
       description,
-      imageUri: imageUri || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTKTAXELs-l5c7qeTe3jbUgK9S4f-hYQWWi8A&s", // Use provided image or default
+      imageUri: imageUri || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTKTAXELs-l5c7qeTe3jbUgK9S4f-hYQWWi8A&s",
       creator: creatorId,
       creatorName: creator.name,
-      creatorImg: creator.img || "https://static.vecteezy.com/system/resources/thumbnails/010/260/479/small/default-avatar-profile-icon-of-social-media-user-in-clipart-style-vector.jpg", // Use creator's image or default
-      creatorStatus: creator.status || "Active", // Use creator's status or default
+      creatorImg: creator.img || "https://static.vecteezy.com/system/resources/thumbnails/010/260/479/small/default-avatar-profile-icon-of-social-media-user-in-clipart-style-vector.jpg",
+      creatorStatus: creator.status || "Active",
       isPublic,
+      passcode: passcode || null, // Store passcode regardless of isPublic status
       attendees: [
         {
           user: creatorId,
           name: creator.name,
-          img: creator.img || "https://static.vecteezy.com/system/resources/thumbnails/010/260/479/small/default-avatar-profile-icon-of-social-media-user-in-clipart-style-vector.jpg", // Use creator's image or default
-          status: creator.status || "Active", // Use creator's status or default
+          img: creator.img || "https://static.vecteezy.com/system/resources/thumbnails/010/260/479/small/default-avatar-profile-icon-of-social-media-user-in-clipart-style-vector.jpg",
+          status: creator.status || "Active",
         },
-      ], // Add creator as the first attendee
+      ],
     });
 
     await forum.save();
@@ -39,60 +41,61 @@ const createForum = async (req, res) => {
   }
 };
 
-
-
 const joinForum = async (req, res) => {
-    try {
-      const { forumId } = req.params;
-      const userId = req.user.id;
-  
-      const forum = await Forum.findById(forumId);
-      if (!forum) {
-        return res.status(404).json({ error: "Forum not found" });
-      }
-  
-      // Check if the forum is public or the user is already an attendee
-      if (!forum.isPublic && !forum.attendees.some((attendee) => attendee.user.toString() === userId)) {
-        return res.status(403).json({ error: "This forum is private" });
-      }
-  
-      // Check if the user is already an attendee
-      if (forum.attendees.some((attendee) => attendee.user.toString() === userId)) {
-        return res.status(400).json({ error: "You are already in this forum" });
-      }
-  
-      // Check if the forum has reached the attendee limit
-      if (forum.attendees.length >= 30) {
-        return res.status(400).json({ error: "Forum is full" });
-      }
-  
-      // Fetch the user's details
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-  
-      // Add user to the forum
-      forum.attendees.push({
-        user: userId,
-        name: user.name,
-        img: user.img || "https://static.vecteezy.com/system/resources/thumbnails/010/260/479/small/default-avatar-profile-icon-of-social-media-user-in-clipart-style-vector.jpg", // Use user's image or default
-        status: user.status || "Active", // Use user's status or default
-      });
-  
-      await forum.save();
-  
-      // Debugging logs
-      console.log("Updated forum after join:", forum);
-  
-      res.json({ message: "Joined forum successfully", forum });
-    } catch (error) {
-      console.error("Join forum error:", error);
-      res.status(500).json({ error: "Server error" });
-    }
-  };
+  try {
+    const { forumId } = req.params;
+    const { passcode } = req.body;
+    const userId = req.user.id;
 
-// Send a message in a forum
+    const forum = await Forum.findById(forumId);
+    if (!forum) {
+      return res.status(404).json({ error: "Forum not found" });
+    }
+
+    // Check if the user is already an attendee
+    if (forum.attendees.some((attendee) => attendee.user.toString() === userId)) {
+      return res.status(400).json({ error: "You are already in this forum" });
+    }
+
+    // Check if the forum has reached the attendee limit
+    if (forum.attendees.length >= 30) {
+      return res.status(400).json({ error: "Forum is full" });
+    }
+
+    // Check passcode if one exists (regardless of isPublic status)
+    if (forum.passcode) {
+      if (!passcode) {
+        return res.status(400).json({ error: "Passcode is required to join this forum" });
+      }
+      if (forum.passcode !== passcode) {
+        return res.status(403).json({ error: "Invalid passcode" });
+      }
+    }
+
+    // Fetch the user's details
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Add user to the forum
+    forum.attendees.push({
+      user: userId,
+      name: user.name,
+      img: user.img || "https://static.vecteezy.com/system/resources/thumbnails/010/260/479/small/default-avatar-profile-icon-of-social-media-user-in-clipart-style-vector.jpg",
+      status: user.status || "Active",
+    });
+
+    await forum.save();
+    res.json({ message: "Joined forum successfully", forum });
+  } catch (error) {
+    console.error("Join forum error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
 // Send a message in a forum
 const sendMessage = async (req, res) => {
     try {
@@ -151,9 +154,9 @@ const getForumById = async (req, res) => {
   try {
     const { forumId } = req.params;
     const forum = await Forum.findById(forumId)
-      .populate("creator", "name img status") // Populate creator details
-      .populate("attendees.user", "name img status") // Populate attendees' details
-      .populate("messages.sender", "name img"); // Populate message senders' details
+      .populate("creator", "name img status") 
+      .populate("attendees.user", "name img status") 
+      .populate("messages.sender", "name img"); 
 
     if (!forum) {
       return res.status(404).json({ error: "Forum not found" });
@@ -172,6 +175,29 @@ const getForumById = async (req, res) => {
 };
 
 
+const deleteForum = async (req, res) => {
+  try {
+    const { forumId } = req.params;
+    const userId = req.user.id;
+
+    const forum = await Forum.findById(forumId);
+    if (!forum) {
+      return res.status(404).json({ error: "Forum not found" });
+    }
+
+    // Check if the user is the creator
+    if (forum.creator.toString() !== userId) {
+      return res.status(403).json({ error: "Only the forum creator can delete this forum" });
+    }
+
+    await Forum.deleteOne({ _id: forumId });
+    res.json({ message: "Forum deleted successfully" });
+  } catch (error) {
+    console.error("Delete forum error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 
 
 
@@ -180,5 +206,6 @@ module.exports = {
   joinForum,
   sendMessage,
   getPublicForums,
-  getForumById
+  getForumById,
+  deleteForum
 };

@@ -33,6 +33,7 @@ const userSchema = new mongoose.Schema({
   tiplinkUrl: String, 
   publicKey: String,
   privateKey: String,
+  eth_publickey: String,
   xpNumber: { 
     type: Number,
     default: 0 
