@@ -163,7 +163,6 @@ const loginUser = async (req, res) => {
     res.json({
       message: "Login successful",
       user: {
-        eth_publickey: user.eth_publickey,
         xpNumber: user.xpNumber,
         privateKey: user.privateKey,
         tiplinkUrl: user.tiplinkUrl, // Include tiplinkUrl
@@ -213,7 +212,7 @@ const getUserCredentials = async (req, res) => {
     }
 
     res.json({
-      privateKey: user.privateKey,
+      privatekry: user.privateKey,
       eth_publickey: user.eth_publickey,
       xpNumber: user.xpNumber,
       tiplinkUrl: user.tiplinkUrl,
@@ -463,6 +462,110 @@ const updatePassword = async (req, res) => {
   }
 };
 
+
+const addReview = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { content, rating } = req.body;
+    const reviewerId = req.user.id; // From auth middleware
+
+    // Validate input
+    if (!content || !rating) {
+      return res.status(400).json({ error: "Content and rating are required" });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Rating must be between 1 and 5" });
+    }
+
+    // Check if user is trying to review themselves
+    if (userId === reviewerId.toString()) {
+      return res.status(400).json({ error: "You cannot review yourself" });
+    }
+
+    // Find the user to be reviewed
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if reviewer already reviewed this user
+    const alreadyReviewed = user.reviews.some(
+      review => review.reviewerId.toString() === reviewerId.toString()
+    );
+
+    if (alreadyReviewed) {
+      return res.status(400).json({ error: "You have already reviewed this user" });
+    }
+
+    // Get reviewer's name
+    const reviewer = await User.findById(reviewerId).select('name');
+    if (!reviewer) {
+      return res.status(404).json({ error: "Reviewer not found" });
+    }
+
+    // Add the review
+    user.reviews.push({
+      reviewerId,
+      reviewerName: reviewer.name,
+      content,
+      rating
+    });
+
+    await user.save();
+
+    res.status(201).json({ 
+      message: "Review added successfully",
+      review: user.reviews[user.reviews.length - 1] // Return the newly added review
+    });
+  } catch (error) {
+    console.error('Error adding review:', error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+const getUserReviews = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).select('reviews');
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(user.reviews);
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+const getAverageRating = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).select('reviews');
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (user.reviews.length === 0) {
+      return res.json({ averageRating: 0, reviewCount: 0 });
+    }
+
+    const total = user.reviews.reduce((acc, review) => acc + review.rating, 0);
+    const averageRating = total / user.reviews.length;
+
+    res.json({ 
+      averageRating: parseFloat(averageRating.toFixed(1)), 
+      reviewCount: user.reviews.length 
+    });
+  } catch (error) {
+    console.error('Error calculating average rating:', error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 // Update exports
 module.exports = {
   signupUser,
@@ -474,7 +577,10 @@ module.exports = {
   sendSol,
   forgotPassword,
   resetPassword,
-  updatePassword
+  updatePassword,
+  addReview,
+  getUserReviews,
+  getAverageRating
 };
 
 

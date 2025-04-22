@@ -11,11 +11,24 @@ const AdminModel = require("./models/admin");
 const MarketingPitch = require("./models/markrtingPitch");
 const Service = require('./models/service'); 
 const { AccessToken, Role } = require('@huddle01/server-sdk/auth');
+const http = require('http'); // Add this for WebSocket support
+const { Server } = require('socket.io'); // Add Socket.io
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
+
+const server = http.createServer(app);
+
+// Initialize Socket.io with CORS configuration
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:5173", // Adjust to your client URL
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
 mongoose
   .connect(process.env.MONGODB_URI)
@@ -50,6 +63,25 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 
+
+io.on('connection', (socket) => {
+  console.log(`New client connected: ${socket.id}`);
+
+  // Forum-specific events
+  socket.on('joinForum', (forumId) => {
+    socket.join(forumId);
+    console.log(`User joined forum: ${forumId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
+  });
+});
+
+// Make io accessible to routes
+app.set('io', io);
+
+
 app.get("/getUsers", async (req, res) => {
   try {
     const users = await UserModel.find().select("-password"); // Exclude password field
@@ -62,6 +94,7 @@ app.get("/getUsers", async (req, res) => {
     });
   }
 });
+
 app.get("/getUser/:id", async (req, res) => {
   try {
     const users = await UserModel.findById(req.params.id); // Fetch the user by ID
@@ -200,4 +233,4 @@ app.use("/", require("./routes/forumRoutes"));
 app.use("/", require("./routes/huddleRoute"));
 
 const port = process.env.PORT || 8000;
-app.listen(port, () => console.log(`Server is running on port ${port}`));
+server.listen(port, () => console.log(`Server is running on port ${port}`));

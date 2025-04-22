@@ -1,5 +1,17 @@
-// models/Job.js
 const mongoose = require('mongoose');
+
+const ApplicationSchema = new mongoose.Schema({
+  name: { type: String }, // Optional
+  description: { type: String }, // Optional
+  telegramUsername: { type: String }, // Optional
+  resumeUrl: { type: String }, // Optional
+  appliedAt: { type: Date, default: Date.now },
+  status: {
+    type: String,
+    enum: ['pending', 'reviewed', 'accepted', 'rejected'],
+    default: 'pending',
+  },
+});
 
 const JobSchema = new mongoose.Schema({
   imageUri: {
@@ -27,9 +39,10 @@ const JobSchema = new mongoose.Schema({
     required: true,
   },
   stack: {
-    type: [String], // Array of strings for multiple technologies
+    type: [String],
     required: true,
   },
+  applications: [ApplicationSchema],
   createdAt: {
     type: Date,
     default: Date.now,

@@ -10,7 +10,10 @@ const {
   tokenIsValid,
   forgotPassword,
   updatePassword,
-  resetPassword
+  resetPassword,
+  addReview,
+  getAverageRating,
+  getUserReviews
 } = require("../controllers/authControllers");
 const auth = require("../middleware/authMiddleware");
 
@@ -24,5 +27,9 @@ router.get("/verify-email/:token", verifyEmail);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
 router.put("/update-password", auth, updatePassword);
+
+router.post('/users/:userId/reviews', auth, addReview);
+router.get('/users/:userId/reviews', getUserReviews);
+router.get('/users/:userId/average-rating', getAverageRating);
 
 module.exports = router;
