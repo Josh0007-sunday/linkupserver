@@ -218,6 +218,62 @@ app.get("/getAdmins", async (req, res) => {
 });
 
 
+app.post('/api/create-room', async (req, res) => {
+  try {
+    console.log('Creating Huddle01 room...');
+    const response = await fetch('https://api.huddle01.com/api/v2/sdk/rooms/create-room', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Huddle01 Room',
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.HUDDLE01_API_KEY,
+      },
+      cache: 'no-cache',
+    });
+    console.log('Huddle01 response status:', response.status);
+    const data = await response.json();
+    console.log('Huddle01 response data:', data);
+    const roomId = data.data.roomId;
+    res.json({ roomId });
+  } catch (error) {
+    console.error('Huddle01 error:', error);
+    res.status(500).json({ error: 'Failed to create room' });
+  }
+});
+
+app.get('/api/token', async (req, res) => {
+    const { roomId } = req.query;
+  
+    if (!roomId) {
+      return res.status(400).json({ error: 'Missing roomId' });
+    }
+  
+    const { AccessToken, Role } = require('@huddle01/server-sdk/auth');
+  
+    const accessToken = new AccessToken({
+      apiKey: process.env.HUDDLE01_API_KEY,
+      roomId: roomId,
+      role: Role.HOST,
+      permissions: {
+        admin: true,
+        canConsume: true,
+        canProduce: true,
+        canProduceSources: {
+          cam: true,
+          mic: true,
+          screen: true,
+        },
+        canRecvData: true,
+        canSendData: true,
+        canUpdateMetadata: true,
+      },
+    });
+  
+    const token = await accessToken.toJwt();
+    res.json({ token });
+  });
 
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -231,6 +287,8 @@ app.use("/", require("./routes/verify"));
 app.use("/", require("./routes/sendsol"));
 app.use("/", require("./routes/forumRoutes"));
 app.use("/", require("./routes/huddleRoute"));
+app.use('/articles', require('./routes/articleRoutes')); 
+app.use('/backdropUploads', express.static('backdropUploads'))
 
 const port = process.env.PORT || 8000;
 server.listen(port, () => console.log(`Server is running on port ${port}`));
